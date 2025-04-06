@@ -14,8 +14,8 @@ namespace Rent.Application.Services
         Task<Car> GetCarByPlateNumberAsync(string plateNumber);
         Task<Result<CarDto>> CreateCarAsync(CarDto car);
         Task UpdateCarAsync(string plateNumber, UpdateCarDto carDto);
+        Task PatchCarAsync(string plateNumber, PatchCarDto patchCarDto);
         Task DeleteCarAsync(string plateNumber);
         Task<IEnumerable<Car>> GetAvailableCarsAsync();
     }
 }
-

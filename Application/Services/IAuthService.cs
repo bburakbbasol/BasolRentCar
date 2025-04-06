@@ -10,14 +10,25 @@ namespace Rent.Application.Services
 {
 
 
-    public interface IAuthService
-    {
-      //  Task<string> GenerateTokenAsync(string username, string password);
-        Task<bool> ValidateUserAsync(string username, string password);
-        Task<bool> RegisterUserAsync(RegisterDto registerDto);
-        Task<bool> RegisterAdminAsync(RegisterDto registerDto);
-        Task<User> GetById(Guid id);
-        Task<Result<User>> LoginUser(LoginUserDto loginUserDto); 
-    }
+    
+   
+       
+
+        public interface IAuthService
+        {
+            Task<bool> ValidateUserAsync(string username, string password);
+            Task<bool> RegisterUserAsync(RegisterDto registerDto);
+            Task<bool> RegisterAdminAsync(RegisterDto registerDto);
+            Task<User> GetById(Guid id);
+            Task<User> GetByUsername(string username); // Yeni metod
+            Task<Result<User>> LoginUser(LoginUserDto loginUserDto);
+        }
+
+
+
+
+
+
+    
 
 }

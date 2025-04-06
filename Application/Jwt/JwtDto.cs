@@ -1,5 +1,11 @@
 ﻿namespace Rent.WebApi.Jwt
 {
+    /*
+     * appsettings.json veya başka bir konfigürasyondan gelen JWT ayarlarını nesne olarak alıp kullanmak.
+     *Token üretimi için ihtiyaç duyulan kullanıcı bilgilerini ve ayarları tek bir DTO üzerinden geçirm.
+
+     *JwtHelper gibi servislerde parametre karmaşasını azaltmak.
+     */
     public class JwtDto
     {
         public Guid Id { get; set; }

@@ -1,17 +1,16 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
-
+using Microsoft.OpenApi.Models;
+using Rent.Application.Interfaces.Rent.Application.Interfaces;
 using Rent.Application.Interfaces;
 using Rent.Application.Services;
 using Rent.Infrastructure.Data;
 using Rent.Infrastructure.Repository;
-using Rent.WebApi.Middleware;
+using Rent.WebApi.Filters;
 using Rent.WebApi.Jwt;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.OpenApi.Models;
-using Rent.Application.Interfaces.Rent.Application.Interfaces;
+using Rent.WebApi.Middleware;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +35,10 @@ builder.Services.AddSingleton<JwtHelper>();
 
 // Add Data Protection
 builder.Services.AddDataProtection();
+
+// Add Filters
+builder.Services.AddScoped<ValidationFilter>(); // ValidationFilter'ý ekle
+builder.Services.AddScoped<TimeControllerFilter>(); // TimeControllerFilter'ý ekle
 
 // Configure Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -106,8 +109,10 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<ExceptionMiddleware>();
-app.UseMiddleware<JwtMiddleware>();
+app.UseMiddleware<JwtMiddleware>(); // JwtMiddleware'i ekle
+app.UseMiddleware<RequestLoggingMiddleware>(); // RequestLoggingMiddleware'i ekle
 
 app.MapControllers();
 
 app.Run();
+
