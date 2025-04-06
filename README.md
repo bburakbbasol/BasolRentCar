@@ -67,7 +67,7 @@ BasolRentCar/
 
 1. Projeyi klonlayın:
 ```bash
-git clone https://github.com/yourusername/BasolRentCar.git
+git clone https://github.com/bburakbbasol/BasolRentCar.git
 ```
 
 2. `WebApi/appsettings.json` dosyasında veritabanı bağlantı dizesini güncelleyin:
