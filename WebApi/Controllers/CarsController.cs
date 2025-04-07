@@ -27,7 +27,7 @@ public class CarsController : ControllerBase
     }
 
     // Belirli bir plaka numarasına göre araç getiriyoruz.
-    [HttpGet("{plateNumber}")]
+    [HttpGet("{plateNumber}/time")]
     [ServiceFilter(typeof(TimeControllerFilter))] // Zaman kontrolü için filtre kullanıyoruz.
     public async Task<ActionResult<Car>> GetCar(string plateNumber)
     {
@@ -68,7 +68,7 @@ public class CarsController : ControllerBase
     // Bir aracın tüm bilgilerini güncelliyoruz.
     [HttpPut("{plateNumber}")]
     [Authorize(Roles = "Admin")]
-    [ServiceFilter(typeof(TimeControllerFilter))]
+   
     public async Task<IActionResult> UpdateCar(string plateNumber, [FromBody] UpdateCarRequest updateCarRequest)
     {
         var car = await _carService.GetCarByPlateNumberAsync(plateNumber);

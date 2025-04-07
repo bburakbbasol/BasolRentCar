@@ -11,6 +11,11 @@ namespace Rent.Application
         public bool IsSucced { get; set; }
         public string Message { get; set; }
         public T Data { get; set; }
+        public string Token { get; set; } // Token özelliği eklendi
     }
+
+
+
+
 }
 

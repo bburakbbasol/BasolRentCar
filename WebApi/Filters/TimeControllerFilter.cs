@@ -12,8 +12,8 @@ namespace Rent.WebApi.Filters
         private Stopwatch _stopwatch;
 
         // Başlangıç ve bitiş saatleri tanımlıyoruz
-        private readonly TimeSpan _startTime = new TimeSpan(18, 0, 0);  
-        private readonly TimeSpan _endTime = new TimeSpan(01, 0, 0);   
+        private readonly TimeSpan _startTime = new TimeSpan(12, 0, 0);  
+        private readonly TimeSpan _endTime = new TimeSpan(23, 0, 0);   
 
         public TimeControllerFilter(ILogger<TimeControllerFilter> logger)
         {
@@ -29,7 +29,7 @@ namespace Rent.WebApi.Filters
             {
                 context.Result = new ContentResult
                 {
-                    StatusCode = 403, // Forbidden
+                    StatusCode = 403, 
                     Content = $"Giriş sadece {_startTime} - {_endTime} saatleri arasında yapılabilir."
                 };
                 return;

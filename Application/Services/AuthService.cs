@@ -1,66 +1,62 @@
-﻿
-using Rent.Application.DTOs;               
-using Rent.Application;              
-using Rent.Infrastructure.Entities;       
-using Rent.Infrastructure.Repository;     
-using System.Text;                        
-using System.Security.Cryptography;   
-using Rent.Application.Services;         
+﻿using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Configuration;
+using Rent.Application.DTOs;
+using Rent.Application;
+using Rent.Infrastructure.Entities;
+using Rent.Infrastructure.Repository;
+using Rent.WebApi.Jwt;
+using System.Text;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
+using Rent.Application.Services;
 
-// IAuthService arayüzünü uygulayan AuthService sınıfı
 public class AuthService : IAuthService
 {
-    // Kullanıcı verilerine erişim için generic repository
     private readonly IGenericRepository<User> _userRepository;
+    private readonly IDataProtector _dataProtector;
+    private readonly JwtHelper _jwtHelper;
+    private readonly IConfiguration _configuration;
 
-    // Constructor ile repository enjekte ediliyor
-    public AuthService(IGenericRepository<User> userRepository)
+    public AuthService(IGenericRepository<User> userRepository, IDataProtectionProvider dataProtectionProvider, JwtHelper jwtHelper, IConfiguration configuration)
     {
         _userRepository = userRepository;
+        _dataProtector = dataProtectionProvider.CreateProtector("AuthService");
+        _jwtHelper = jwtHelper;
+        _configuration = configuration;
     }
 
-    // Kullanıcı doğrulama (login gibi): kullanıcı adı ve şifre kontrolü
     public async Task<bool> ValidateUserAsync(string username, string password)
     {
-        // Kullanıcıyı kullanıcı adına göre arar
         var user = (await _userRepository.FindAsync(u => u.Username == username)).FirstOrDefault();
-        if (user == null) return false; // Kullanıcı yoksa başarısız
+        if (user == null) return false;
 
-        // Şifreyi hash'leyip kayıtlı hash ile karşılaştırır
-        var hashedPassword = HashPassword(password, user.Salt);
-        return hashedPassword == user.PasswordHash;
+        var encryptedPassword = Encrypt(password);
+        return encryptedPassword == user.PasswordHash;
     }
 
-    // Yeni kullanıcı kaydı (normal kullanıcı)
     public async Task<bool> RegisterUserAsync(RegisterDto registerDto)
     {
-        // Aynı kullanıcı adı ya da e-posta ile kullanıcı varsa kayıt yapılmaz
         var existingUser = (await _userRepository.FindAsync(u => u.Username == registerDto.Username || u.Email == registerDto.Email)).FirstOrDefault();
         if (existingUser != null) return false;
 
-        // Yeni bir salt oluşturulur (şifreyi hashlemek için kullanılır)
         var salt = Guid.NewGuid().ToString();
-
-        // Yeni kullanıcı nesnesi oluşturulur
         var user = new User
         {
-            Id = Guid.NewGuid(),                         // Yeni benzersiz ID
+            Id = Guid.NewGuid(),
             Username = registerDto.Username,
             Email = registerDto.Email,
-            PasswordHash = HashPassword(registerDto.Password, salt),  // Şifre hash'lenmiş haliyle saklanır
+            PasswordHash = HashPassword(registerDto.Password, salt),
             Salt = salt,
-            Role = "User",                               // Rol varsayılan olarak "User"
+            Role = "User",
             CreatedAt = DateTime.UtcNow,
             FirstName = registerDto.FirstName,
             LastName = registerDto.LastName
         };
 
-        // Veritabanına eklenir
         await _userRepository.AddAsync(user);
         return true;
     }
 
-    // Yeni admin kullanıcısı kaydı (kullanıcıdan farklı olarak rol "Admin")
     public async Task<bool> RegisterAdminAsync(RegisterDto registerDto)
     {
         var existingUser = (await _userRepository.FindAsync(u => u.Username == registerDto.Username || u.Email == registerDto.Email)).FirstOrDefault();
@@ -74,7 +70,7 @@ public class AuthService : IAuthService
             Email = registerDto.Email,
             PasswordHash = HashPassword(registerDto.Password, salt),
             Salt = salt,
-            Role = "Admin",                              // Burada rol "Admin"
+            Role = "Admin",
             CreatedAt = DateTime.UtcNow,
             FirstName = registerDto.FirstName,
             LastName = registerDto.LastName
@@ -84,44 +80,136 @@ public class AuthService : IAuthService
         return true;
     }
 
-    // Kullanıcıyı ID'ye göre getirir
+    public async Task<bool> RegisterAdminAsyncIData(RegisterDto registerDto)
+    {
+        var existingUser = (await _userRepository.FindAsync(u => u.Username == registerDto.Username || u.Email == registerDto.Email)).FirstOrDefault();
+        if (existingUser != null) return false;
+
+        var salt = Guid.NewGuid().ToString();
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Username = registerDto.Username,
+            Email = registerDto.Email,
+            PasswordHash = Encrypt(registerDto.Password), // Şifreyi şifrele
+            Salt = salt,
+            Role = "Admin",
+            CreatedAt = DateTime.UtcNow,
+            FirstName = registerDto.FirstName,
+            LastName = registerDto.LastName
+        };
+
+        await _userRepository.AddAsync(user);
+        return true;
+    }
+
+    public async Task<Result<User>> LoginAdmin(LoginUserDto loginUserDto)
+    {
+        var user = (await _userRepository.FindAsync(u => u.Email == loginUserDto.Email && u.Role == "Admin")).FirstOrDefault();
+        if (user == null) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
+
+        var hashedPassword = HashPassword(loginUserDto.Password, user.Salt);
+        if (hashedPassword != user.PasswordHash) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
+
+        var jwtDto = new JwtDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = user.Role,
+            UserName = user.Username,
+            SecretKey = _configuration["Jwt:SecretKey"],
+            Issuer = _configuration["Jwt:Issuer"],
+            Audience = _configuration["Jwt:Audience"],
+            ExpiresMinutes = int.Parse(_configuration["Jwt:ExpiresMinutes"])
+        };
+
+        var token = _jwtHelper.GenerateJwtToken(jwtDto);
+
+        return new Result<User> { IsSucced = true, Data = user, Token = token };
+    }
+
+    public async Task<Result<User>> LoginUser(LoginUserDto loginUserDto)
+    {
+        var user = (await _userRepository.FindAsync(u => u.Email == loginUserDto.Email)).FirstOrDefault();
+        if (user == null) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
+
+        var hashedPassword = HashPassword(loginUserDto.Password, user.Salt);
+        if (hashedPassword != user.PasswordHash) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
+
+        var jwtDto = new JwtDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = user.Role,
+            UserName = user.Username,
+            SecretKey = _configuration["Jwt:SecretKey"],
+            Issuer = _configuration["Jwt:Issuer"],
+            Audience = _configuration["Jwt:Audience"],
+            ExpiresMinutes = int.Parse(_configuration["Jwt:ExpiresMinutes"])
+        };
+
+        var token = _jwtHelper.GenerateJwtToken(jwtDto);
+
+        return new Result<User> { IsSucced = true, Data = user, Token = token };
+    }
+
+    public async Task<Result<User>> LoginIData(LoginUserDto loginUserDto)
+    {
+        var user = (await _userRepository.FindAsync(u => u.Email == loginUserDto.Email)).FirstOrDefault();
+        if (user == null) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
+
+        var decryptedPassword = Decrypt(user.PasswordHash); // Şifreyi çöz
+        if (loginUserDto.Password != decryptedPassword) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
+
+        var jwtDto = new JwtDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Role = user.Role,
+            UserName = user.Username,
+            SecretKey = _configuration["Jwt:SecretKey"],
+            Issuer = _configuration["Jwt:Issuer"],
+            Audience = _configuration["Jwt:Audience"],
+            ExpiresMinutes = int.Parse(_configuration["Jwt:ExpiresMinutes"])
+        };
+
+        var token = _jwtHelper.GenerateJwtToken(jwtDto);
+
+        return new Result<User> { IsSucced = true, Data = user, Token = token };
+    }
+
     public async Task<User> GetById(Guid id)
     {
         return await _userRepository.GetByIdAsync(id);
     }
 
-    // Kullanıcıyı kullanıcı adına göre getirir
     public async Task<User> GetByUsername(string username)
     {
         return (await _userRepository.FindAsync(u => u.Username == username)).FirstOrDefault();
     }
 
-    // Kullanıcı girişi yapılır ve sonucu (başarılı/başarısız) döner
-    public async Task<Result<User>> LoginUser(LoginUserDto loginUserDto)
-    {
-        // E-posta ile kullanıcı aranır
-        var user = (await _userRepository.FindAsync(u => u.Email == loginUserDto.Email)).FirstOrDefault();
-        if (user == null)
-            return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
-
-        // Şifre hash'lenerek karşılaştırılır
-        var hashedPassword = HashPassword(loginUserDto.Password, user.Salt);
-        if (hashedPassword != user.PasswordHash)
-            return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
-
-        // Giriş başarılıysa kullanıcı bilgileri döner
-        return new Result<User> { IsSucced = true, Data = user };
-    }
-
-    // Şifreyi SHA256 algoritmasıyla hash'ler
     private string HashPassword(string password, string salt)
     {
-        using (var sha256 = SHA256.Create()) // SHA256 nesnesi oluşturuluyor
+        using (var sha256 = SHA256.Create())
         {
-            // Şifre + salt birleştirilip UTF8 ile byte dizisine dönüştürülür
             var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password + salt));
-            // Byte dizisi Base64 string'e çevrilir
             return Convert.ToBase64String(hashedBytes);
         }
+    }
+
+    private string Encrypt(string input)
+    {
+        return _dataProtector.Protect(input);
+    }
+
+    private string Decrypt(string input)
+    {
+        return _dataProtector.Unprotect(input);
     }
 }
