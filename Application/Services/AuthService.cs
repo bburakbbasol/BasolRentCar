@@ -1,4 +1,4 @@
-ï»¿using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Rent.Application.DTOs;
 using Rent.Application;
@@ -91,7 +91,7 @@ public class AuthService : IAuthService
             Id = Guid.NewGuid(),
             Username = registerDto.Username,
             Email = registerDto.Email,
-            PasswordHash = Encrypt(registerDto.Password), // Åžifreyi ÅŸifrele
+            PasswordHash = Encrypt(registerDto.Password), // Þifreyi þifrele
             Salt = salt,
             Role = "Admin",
             CreatedAt = DateTime.UtcNow,
@@ -162,7 +162,7 @@ public class AuthService : IAuthService
         var user = (await _userRepository.FindAsync(u => u.Email == loginUserDto.Email)).FirstOrDefault();
         if (user == null) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
 
-        var decryptedPassword = Decrypt(user.PasswordHash); // Åžifreyi Ã§Ã¶z
+        var decryptedPassword = Decrypt(user.PasswordHash); // Þifreyi çöz
         if (loginUserDto.Password != decryptedPassword) return new Result<User> { IsSucced = false, Message = "Invalid email or password" };
 
         var jwtDto = new JwtDto

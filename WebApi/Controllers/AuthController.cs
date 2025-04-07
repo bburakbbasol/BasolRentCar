@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Rent.Application.DTOs;
 using Rent.Application.Services;
 using Rent.WebApi.Jwt;
@@ -12,10 +12,12 @@ namespace Rent.WebApi.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly JwtHelper _jwtHelper;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, JwtHelper jwtHelper)
         {
             _authService = authService;
+            _jwtHelper = jwtHelper;
         }
 
         [HttpPost("login")]
@@ -37,10 +39,27 @@ namespace Rent.WebApi.Controllers
             if (!result.IsSucced)
                 return BadRequest(result.Message);
 
+            var user = result.Data;
+            var jwtDto = new JwtDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Role = user.Role,
+                UserName = user.Username,
+                SecretKey = _jwtHelper.SecretKey,
+                Issuer = _jwtHelper.Issuer,
+                Audience = _jwtHelper.Audience,
+                ExpiresMinutes = _jwtHelper.ExpiresMinutes
+            };
+
+            var token = _jwtHelper.GenerateJwtToken(jwtDto);
+
             return Ok(new LoginResponse
             {
                 Message = "Login successfully completed",
-                Token = result.Token
+                Token = token
             });
         }
 
@@ -63,10 +82,27 @@ namespace Rent.WebApi.Controllers
             if (!result.IsSucced)
                 return BadRequest(result.Message);
 
+            var user = result.Data;
+            var jwtDto = new JwtDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Role = user.Role,
+                UserName = user.Username,
+                SecretKey = _jwtHelper.SecretKey,
+                Issuer = _jwtHelper.Issuer,
+                Audience = _jwtHelper.Audience,
+                ExpiresMinutes = _jwtHelper.ExpiresMinutes
+            };
+
+            var token = _jwtHelper.GenerateJwtToken(jwtDto);
+
             return Ok(new LoginResponse
             {
                 Message = "Login successfully completed",
-                Token = result.Token
+                Token = token
             });
         }
 
@@ -135,3 +171,8 @@ namespace Rent.WebApi.Controllers
         }
     }
 }
+
+
+
+
+
